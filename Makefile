@@ -7,7 +7,6 @@ CFLAGS += -pedantic
 CFLAGS += -Werror
 CFLAGS += -Wmissing-declarations
 CFLAGS += -DUNITY_SUPPORT_64 -DUNITY_OUTPUT_COLOR
-CFLAGS += -I$(NIX_CFLAGS_COMPILE)
 CFLAGS += -lSDL2
 
 ASANFLAGS  = -fsanitize=address

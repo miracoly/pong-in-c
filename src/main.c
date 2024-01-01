@@ -6,13 +6,17 @@
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
 
+#define BALL_WIDTH 15
+#define BALL_HEIGHT 15
+#define BALL_SPEED 150
+
 #define FPS 60
 #define FRAME_TARGET_TIME (1000 / FPS)
 
-static bool initialize_window(SDL_Window** window, SDL_Renderer** renderer) {
+static void initialize_window(SDL_Window** window, SDL_Renderer** renderer) {
     if (SDL_Init(SDL_INIT_EVERYTHING)) {
         perror("Error initializing SDL.\n");
-        return false;
+        exit(EXIT_FAILURE);
     }
 
     *window = SDL_CreateWindow(
@@ -24,16 +28,14 @@ static bool initialize_window(SDL_Window** window, SDL_Renderer** renderer) {
             SDL_WINDOW_BORDERLESS);
     if (!*window) {
         perror("Error creating SDL Window.\n");
-        return false;
+        exit(EXIT_FAILURE);
     }
 
     *renderer = SDL_CreateRenderer(*window, -1, 0);
     if (!*renderer) {
         perror("Error creating SDL Renderer.\n");
-        return false;
+        exit(EXIT_FAILURE);
     }
-
-    return true;
 }
 
 static bool process_input(void) {
@@ -56,47 +58,59 @@ static void destroy_window(SDL_Window* window, SDL_Renderer* renderer) {
     SDL_Quit();
 }
 
-typedef struct ball ball;
-struct ball {
+typedef struct {
     float x;
     float y;
-    uint16_t width;
-    uint16_t height;
-};
+    uint16_t angle;
+} ball;
 
-static void setup(ball* b) {
-    *b = (ball) {
-            .x = 20.f,
-            .y = 20.f,
-            .width = 15,
-            .height = 15,
+typedef struct {
+    ball ball;
+    uint16_t player_x;
+    uint64_t last_frame_time;
+} game_state;
+
+static game_state init_game_state(void) {
+    return (game_state) {
+            .ball = (ball) {
+                    .x = 20.f,
+                    .y = 20.f,
+            },
+            .player_x = WINDOW_WIDTH / 2,
+            .last_frame_time = 0
     };
 }
 
-static uint64_t update(uint64_t last_frame_time, ball* b) {
-    while (!SDL_TICKS_PASSED(SDL_GetTicks64(), last_frame_time + FRAME_TARGET_TIME));
+static game_state update(const game_state old_state) {
+    const unsigned time_to_wait = FRAME_TARGET_TIME - (SDL_GetTicks64() - old_state.last_frame_time);
+    if (time_to_wait <= FRAME_TARGET_TIME) {
+        SDL_Delay(time_to_wait);
+    }
 
-    const long double delta_time = (SDL_GetTicks64() - last_frame_time) / 1000.0L;
+    const long double delta_time = (SDL_GetTicks64() - old_state.last_frame_time) / 1000.0L;
 
-    (*b).x = (*b).x > WINDOW_WIDTH
-             ? 0.f
-             : (float) ((*b).x + (70 * delta_time));
-    (*b).y = (*b).y > WINDOW_HEIGHT
-             ? 0.f
-             : (float) ((*b).y + (50 * delta_time));
+    return (game_state) {
+            .ball.x = old_state.ball.x > WINDOW_WIDTH
+                      ? 0.f
+                      : (float) (old_state.ball.x + (BALL_SPEED * delta_time)),
+            .ball.y = old_state.ball.y > WINDOW_HEIGHT
+                      ? 0.f
+                      : (float) (old_state.ball.y + (BALL_SPEED * delta_time)),
+            .player_x = 0,
+            .last_frame_time = SDL_GetTicks64()
 
-    return SDL_GetTicks64();
+    };
 }
 
-static void render(SDL_Renderer* renderer, ball* b) {
+static void render(SDL_Renderer* renderer, game_state* state) {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
     const SDL_Rect ball_rect = {
-            (int) (*b).x,
-            (int) (*b).y,
-            (int) (*b).width,
-            (int) (*b).height
+            (int) (*state).ball.x,
+            (int) (*state).ball.y,
+            BALL_WIDTH,
+            BALL_HEIGHT
     };
 
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
@@ -108,16 +122,16 @@ static void render(SDL_Renderer* renderer, ball* b) {
 int main(void) {
     SDL_Window* window = NULL;
     SDL_Renderer* renderer = NULL;
-    uint64_t last_frame_time = 0;
-    bool is_game_running = initialize_window(&window, &renderer);
-    ball b = {0};
 
-    setup(&b);
+    initialize_window(&window, &renderer);
+    game_state state = init_game_state();
+
+    bool is_game_running = true;
 
     while (is_game_running) {
         is_game_running = process_input();
-        last_frame_time = update(last_frame_time, &b);
-        render(renderer, &b);
+        state = update(state);
+        render(renderer, &state);
     }
 
     destroy_window(window, renderer);
