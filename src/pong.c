@@ -11,6 +11,8 @@
 #define BALL_HEIGHT 15
 #define BALL_SPEED 150
 
+#define PLAYER_SPEED 150
+
 #define FPS 60
 #define FRAME_TARGET_TIME (1000 / FPS)
 
@@ -57,7 +59,6 @@ static pong_event process_input(void) {
             if (event.key.keysym.sym == SDLK_RIGHT) return right;
             if (event.key.keysym.sym == SDLK_d) return right;
     }
-
     return idle;
 }
 
@@ -90,34 +91,53 @@ static game_state init_game_state(void) {
     };
 }
 
+static ball update_ball(const ball old_ball, long double delta_time) {
+    return (ball) {
+            .x = old_ball.x > WINDOW_WIDTH
+                 ? 0.f
+                 : (float) (old_ball.x + (BALL_SPEED * delta_time)),
+            .y = old_ball.y > WINDOW_HEIGHT
+                 ? 0.f
+                 : (float) (old_ball.y + (BALL_SPEED * delta_time)),
+    };
+}
+
+static uint16_t move_player_left(uint16_t old_player_x, long double delta_time) {
+    return  (uint16_t) (old_player_x - (PLAYER_SPEED * delta_time));
+}
+
+static uint16_t move_player_right(uint16_t old_player_x, long double delta_time) {
+    return  (uint16_t) (old_player_x + (PLAYER_SPEED * delta_time));
+}
+
 static game_state update_state(const game_state old_state, pong_event event) {
+    const uint64_t new_frame_time = SDL_GetTicks64();
+
     const unsigned time_to_wait =
-            FRAME_TARGET_TIME - (SDL_GetTicks64() - old_state.last_frame_time);
+            FRAME_TARGET_TIME - (new_frame_time - old_state.last_frame_time);
     if (time_to_wait <= FRAME_TARGET_TIME) {
         SDL_Delay(time_to_wait);
     }
 
+    const long double delta_time = (new_frame_time - old_state.last_frame_time) / 1000.0L;
+    game_state new_game_state = {
+            .ball = update_ball(old_state.ball, delta_time),
+            .last_frame_time = new_frame_time
+    };
+
     switch (event) {
-        case quit:
-        case idle:
         case left:
-        case right:
+            new_game_state.player_x = move_player_left(old_state.player_x, delta_time);
             break;
+        case right:
+            new_game_state.player_x = move_player_right(old_state.player_x, delta_time);
+            break;
+        case idle:
+        case quit:
+            new_game_state.player_x = old_state.player_x;
     }
 
-    const long double delta_time = (SDL_GetTicks64() - old_state.last_frame_time) / 1000.0L;
-
-    return (game_state) {
-            .ball.x = old_state.ball.x > WINDOW_WIDTH
-                      ? 0.f
-                      : (float) (old_state.ball.x + (BALL_SPEED * delta_time)),
-            .ball.y = old_state.ball.y > WINDOW_HEIGHT
-                      ? 0.f
-                      : (float) (old_state.ball.y + (BALL_SPEED * delta_time)),
-            .player_x = 0,
-            .last_frame_time = SDL_GetTicks64()
-
-    };
+    return new_game_state;
 }
 
 
