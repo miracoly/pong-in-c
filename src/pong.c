@@ -93,12 +93,12 @@ static game_state init_game_state(void) {
 
 static ball update_ball(const ball* old_ball, long double delta_time) {
     return (ball) {
-            .x = (*old_ball).x > WINDOW_WIDTH
+            .x = old_ball->x > WINDOW_WIDTH
                  ? 0.f
-                 : (float) ((*old_ball).x + (BALL_SPEED * delta_time)),
-            .y = (*old_ball).y > WINDOW_HEIGHT
+                 : (float) (old_ball->x + (BALL_SPEED * delta_time)),
+            .y = old_ball->y > WINDOW_HEIGHT
                  ? 0.f
-                 : (float) ((*old_ball).y + (BALL_SPEED * delta_time)),
+                 : (float) (old_ball->y + (BALL_SPEED * delta_time)),
     };
 }
 
@@ -114,27 +114,27 @@ static game_state update_state(const game_state* old_state, pong_event event) {
     const uint64_t new_frame_time = SDL_GetTicks64();
 
     const unsigned time_to_wait =
-            FRAME_TARGET_TIME - (new_frame_time - (*old_state).last_frame_time);
+            FRAME_TARGET_TIME - (new_frame_time - old_state->last_frame_time);
     if (time_to_wait <= FRAME_TARGET_TIME) {
         SDL_Delay(time_to_wait);
     }
 
-    const long double delta_time = (new_frame_time - (*old_state).last_frame_time) / 1000.0L;
+    const long double delta_time = (new_frame_time - old_state->last_frame_time) / 1000.0L;
     game_state new_game_state = {
-            .ball = update_ball(&(*old_state).ball, delta_time),
+            .ball = update_ball(&old_state->ball, delta_time),
             .last_frame_time = new_frame_time
     };
 
     switch (event) {
         case left:
-            new_game_state.player_x = move_player_left((*old_state).player_x, delta_time);
+            new_game_state.player_x = move_player_left(old_state->player_x, delta_time);
             break;
         case right:
-            new_game_state.player_x = move_player_right((*old_state).player_x, delta_time);
+            new_game_state.player_x = move_player_right(old_state->player_x, delta_time);
             break;
         case idle:
         case quit:
-            new_game_state.player_x = (*old_state).player_x;
+            new_game_state.player_x = old_state->player_x;
     }
 
     return new_game_state;
@@ -156,10 +156,10 @@ static void render_playfield(SDL_Renderer* renderer) {
     SDL_RenderFillRect(renderer, &playfield);
 }
 
-static void render_ball(SDL_Renderer* renderer, const game_state* state) {
+static void render_ball(SDL_Renderer* renderer, const ball* ball) {
     const SDL_Rect ball_rect = {
-            (int) (*state).ball.x,
-            (int) (*state).ball.y,
+            (int) ball->x,
+            (int) ball->y,
             BALL_WIDTH,
             BALL_HEIGHT
     };
@@ -170,7 +170,7 @@ static void render_ball(SDL_Renderer* renderer, const game_state* state) {
 
 static void render(SDL_Renderer* renderer, const game_state* state) {
     render_playfield(renderer);
-    render_ball(renderer, state);
+    render_ball(renderer, &(state->ball));
 
     SDL_RenderPresent(renderer);
 }
