@@ -6,7 +6,7 @@
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
 
-#define FPS 30
+#define FPS 60
 #define FRAME_TARGET_TIME (1000 / FPS)
 
 static bool initialize_window(SDL_Window** window, SDL_Renderer** renderer) {
@@ -58,31 +58,34 @@ static void destroy_window(SDL_Window* window, SDL_Renderer* renderer) {
 
 typedef struct ball ball;
 struct ball {
-    int x;
-    int y;
-    int width;
-    int height;
+    float x;
+    float y;
+    uint16_t width;
+    uint16_t height;
 };
 
 static void setup(ball* b) {
     *b = (ball) {
-            .x = 20,
-            .y = 20,
+            .x = 20.f,
+            .y = 20.f,
             .width = 15,
             .height = 15,
     };
 }
 
-static uint32_t update(uint32_t  last_frame_time, ball* b) {
-    while (!SDL_TICKS_PASSED(SDL_GetTicks(), last_frame_time + FRAME_TARGET_TIME));
+static uint64_t update(uint64_t last_frame_time, ball* b) {
+    while (!SDL_TICKS_PASSED(SDL_GetTicks64(), last_frame_time + FRAME_TARGET_TIME));
+
+    const long double delta_time = (SDL_GetTicks64() - last_frame_time) / 1000.0L;
 
     (*b).x = (*b).x > WINDOW_WIDTH
-             ? 0
-             : (*b).x + 10;
+             ? 0.f
+             : (float) ((*b).x + (70 * delta_time));
     (*b).y = (*b).y > WINDOW_HEIGHT
-             ? 0
-             : (*b).y + 10;
-    return SDL_GetTicks();
+             ? 0.f
+             : (float) ((*b).y + (50 * delta_time));
+
+    return SDL_GetTicks64();
 }
 
 static void render(SDL_Renderer* renderer, ball* b) {
@@ -90,10 +93,10 @@ static void render(SDL_Renderer* renderer, ball* b) {
     SDL_RenderClear(renderer);
 
     const SDL_Rect ball_rect = {
-            (*b).x,
-            (*b).y,
-            (*b).width,
-            (*b).height
+            (int) (*b).x,
+            (int) (*b).y,
+            (int) (*b).width,
+            (int) (*b).height
     };
 
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
@@ -105,7 +108,7 @@ static void render(SDL_Renderer* renderer, ball* b) {
 int main(void) {
     SDL_Window* window = NULL;
     SDL_Renderer* renderer = NULL;
-    uint32_t last_frame_time = 0;
+    uint64_t last_frame_time = 0;
     bool is_game_running = initialize_window(&window, &renderer);
     ball b = {0};
 
