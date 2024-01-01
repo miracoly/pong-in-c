@@ -39,18 +39,26 @@ static void initialize_window(SDL_Window** window, SDL_Renderer** renderer) {
     }
 }
 
-static bool process_input(void) {
+typedef enum {
+    idle, quit, left, right
+} pong_event;
+
+static pong_event process_input(void) {
     SDL_Event event;
     SDL_PollEvent(&event);
 
     switch (event.type) {
         case SDL_QUIT:
-            return false;
+            return quit;
         case SDL_KEYDOWN:
-            if (event.key.keysym.sym == SDLK_ESCAPE) return false;
-            break;
+            if (event.key.keysym.sym == SDLK_ESCAPE) return quit;
+            if (event.key.keysym.sym == SDLK_LEFT) return left;
+            if (event.key.keysym.sym == SDLK_a) return left;
+            if (event.key.keysym.sym == SDLK_RIGHT) return right;
+            if (event.key.keysym.sym == SDLK_d) return right;
     }
-    return true;
+
+    return idle;
 }
 
 static void destroy_window(SDL_Window* window, SDL_Renderer* renderer) {
@@ -82,11 +90,19 @@ static game_state init_game_state(void) {
     };
 }
 
-static game_state update(const game_state old_state) {
+static game_state update_state(const game_state old_state, pong_event event) {
     const unsigned time_to_wait =
             FRAME_TARGET_TIME - (SDL_GetTicks64() - old_state.last_frame_time);
     if (time_to_wait <= FRAME_TARGET_TIME) {
         SDL_Delay(time_to_wait);
+    }
+
+    switch (event) {
+        case quit:
+        case idle:
+        case left:
+        case right:
+            break;
     }
 
     const long double delta_time = (SDL_GetTicks64() - old_state.last_frame_time) / 1000.0L;
@@ -118,15 +134,15 @@ static void render_playfield(SDL_Renderer* renderer) {
     SDL_RenderFillRect(renderer, &playfield);
 }
 
-static void render(SDL_Renderer* renderer, game_state* state) {
+static void render(SDL_Renderer* renderer, game_state state) {
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     SDL_RenderClear(renderer);
 
     render_playfield(renderer);
 
     const SDL_Rect ball_rect = {
-            (int) (*state).ball.x,
-            (int) (*state).ball.y,
+            (int) (state).ball.x,
+            (int) (state).ball.y,
             BALL_WIDTH,
             BALL_HEIGHT
     };
@@ -140,16 +156,16 @@ static void render(SDL_Renderer* renderer, game_state* state) {
 void init_pong(void) {
     SDL_Window* window = NULL;
     SDL_Renderer* renderer = NULL;
-
     initialize_window(&window, &renderer);
+
     game_state state = init_game_state();
 
-    bool is_game_running = true;
+    while (true) {
+        const pong_event event = process_input();
+        if (event == quit) break;
 
-    while (is_game_running) {
-        is_game_running = process_input();
-        state = update(state);
-        render(renderer, &state);
+        state = update_state(state, event);
+        render(renderer, state);
     }
 
     destroy_window(window, renderer);
