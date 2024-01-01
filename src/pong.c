@@ -11,9 +11,13 @@
 #define BALL_HEIGHT 15
 #define BALL_SPEED 150
 
-#define PLAYER_SPEED 150
+#define PLAYER_WIDTH 150
+#define PLAYER_HEIGHT 15
+#define PLAYER_SPEED 750
 
-#define FPS 60
+#define PLAYFIELD_PADDING 15
+
+#define FPS 30
 #define FRAME_TARGET_TIME (1000 / FPS)
 
 static void initialize_window(SDL_Window** window, SDL_Renderer** renderer) {
@@ -41,25 +45,34 @@ static void initialize_window(SDL_Window** window, SDL_Renderer** renderer) {
     }
 }
 
-typedef enum {
-    idle, quit, left, right
-} pong_event;
+typedef struct {
+    bool quit;
+    bool left;
+    bool right;
+} pong_input;
 
-static pong_event process_input(void) {
+static pong_input process_input(pong_input input) {
     SDL_Event event;
     SDL_PollEvent(&event);
 
     switch (event.type) {
         case SDL_QUIT:
-            return quit;
+            input.quit = true;
+            break;
         case SDL_KEYDOWN:
-            if (event.key.keysym.sym == SDLK_ESCAPE) return quit;
-            if (event.key.keysym.sym == SDLK_LEFT) return left;
-            if (event.key.keysym.sym == SDLK_a) return left;
-            if (event.key.keysym.sym == SDLK_RIGHT) return right;
-            if (event.key.keysym.sym == SDLK_d) return right;
+            if (event.key.keysym.sym == SDLK_ESCAPE) input.quit = true;
+            if (event.key.keysym.sym == SDLK_LEFT) input.left = true;
+            if (event.key.keysym.sym == SDLK_a) input.left = true;
+            if (event.key.keysym.sym == SDLK_RIGHT) input.right = true;
+            if (event.key.keysym.sym == SDLK_d) input.right = true;
+            break;
+        case SDL_KEYUP:
+            if (event.key.keysym.sym == SDLK_LEFT) input.left = false;
+            if (event.key.keysym.sym == SDLK_a) input.left = false;
+            if (event.key.keysym.sym == SDLK_RIGHT) input.right = false;
+            if (event.key.keysym.sym == SDLK_d) input.right = false;
     }
-    return idle;
+    return input;
 }
 
 static void destroy_window(SDL_Window* window, SDL_Renderer* renderer) {
@@ -78,10 +91,10 @@ typedef struct {
     ball ball;
     uint16_t player_x;
     uint64_t last_frame_time;
-} game_state;
+} pong_state;
 
-static game_state init_game_state(void) {
-    return (game_state) {
+static pong_state init_game_state(void) {
+    return (pong_state) {
             .ball = (ball) {
                     .x = 20.f,
                     .y = 20.f,
@@ -110,7 +123,14 @@ static uint16_t move_player_right(uint16_t old_player_x, long double delta_time)
     return (uint16_t) (old_player_x + (PLAYER_SPEED * delta_time));
 }
 
-static game_state update_state(const game_state* old_state, pong_event event) {
+static uint16_t update_player(uint16_t old_player_x, pong_input input, long double delta_time) {
+    uint16_t new_player_x = old_player_x;
+    if (input.left) new_player_x = move_player_left(new_player_x, delta_time);
+    if (input.right) new_player_x = move_player_right(new_player_x, delta_time);
+    return new_player_x;
+}
+
+static pong_state update_state(const pong_state* old_state, pong_input input) {
     const uint64_t new_frame_time = SDL_GetTicks64();
 
     const unsigned time_to_wait =
@@ -120,22 +140,12 @@ static game_state update_state(const game_state* old_state, pong_event event) {
     }
 
     const long double delta_time = (new_frame_time - old_state->last_frame_time) / 1000.0L;
-    game_state new_game_state = {
+    pong_state new_game_state = {
             .ball = update_ball(&old_state->ball, delta_time),
             .last_frame_time = new_frame_time
     };
 
-    switch (event) {
-        case left:
-            new_game_state.player_x = move_player_left(old_state->player_x, delta_time);
-            break;
-        case right:
-            new_game_state.player_x = move_player_right(old_state->player_x, delta_time);
-            break;
-        case idle:
-        case quit:
-            new_game_state.player_x = old_state->player_x;
-    }
+    new_game_state.player_x = update_player(old_state->player_x, input, delta_time);
 
     return new_game_state;
 }
@@ -147,8 +157,8 @@ static void render_playfield(SDL_Renderer* renderer) {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 
     const SDL_Rect playfield = {
-            15,
-            15,
+            PLAYFIELD_PADDING,
+            PLAYFIELD_PADDING,
             WINDOW_WIDTH - 30,
             WINDOW_HEIGHT - 30
     };
@@ -168,9 +178,23 @@ static void render_ball(SDL_Renderer* renderer, const ball* ball) {
     SDL_RenderFillRect(renderer, &ball_rect);
 }
 
-static void render(SDL_Renderer* renderer, const game_state* state) {
+
+static void render_player(SDL_Renderer* renderer, uint16_t player_x) {
+    const SDL_Rect player = {
+            player_x,
+            WINDOW_HEIGHT - PLAYER_HEIGHT - (2 * PLAYFIELD_PADDING),
+            PLAYER_WIDTH,
+            PLAYER_HEIGHT
+    };
+
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_RenderFillRect(renderer, &player);
+}
+
+static void render(SDL_Renderer* renderer, const pong_state* state) {
     render_playfield(renderer);
     render_ball(renderer, &(state->ball));
+    render_player(renderer, state->player_x);
 
     SDL_RenderPresent(renderer);
 }
@@ -180,13 +204,18 @@ void init_pong(void) {
     SDL_Renderer* renderer = NULL;
     initialize_window(&window, &renderer);
 
-    game_state state = init_game_state();
+    pong_state state = init_game_state();
+    pong_input input = {
+        .left = false,
+        .right = false,
+        .quit = false
+    };
 
-    while (true) {
-        const pong_event event = process_input();
-        if (event == quit) break;
+    while (!input.quit) {
+        input = process_input(input);
+        if (input.quit) break;
 
-        state = update_state(&state, event);
+        state = update_state(&state, input);
         render(renderer, &state);
     }
 
