@@ -19,7 +19,7 @@ all: build
 
 build: ./src/*.c
 	@echo Compiling $@
-	@$(CC) $(CFLAGS) ./src/*.c -o game.out
+	@$(CC) $(CFLAGS) ./src/main.c ./src/pong.c -o game.out
 
 .PHONY: clean
 clean:
