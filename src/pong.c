@@ -103,11 +103,11 @@ static ball update_ball(const ball old_ball, long double delta_time) {
 }
 
 static uint16_t move_player_left(uint16_t old_player_x, long double delta_time) {
-    return  (uint16_t) (old_player_x - (PLAYER_SPEED * delta_time));
+    return (uint16_t) (old_player_x - (PLAYER_SPEED * delta_time));
 }
 
 static uint16_t move_player_right(uint16_t old_player_x, long double delta_time) {
-    return  (uint16_t) (old_player_x + (PLAYER_SPEED * delta_time));
+    return (uint16_t) (old_player_x + (PLAYER_SPEED * delta_time));
 }
 
 static game_state update_state(const game_state old_state, pong_event event) {
@@ -142,6 +142,9 @@ static game_state update_state(const game_state old_state, pong_event event) {
 
 
 static void render_playfield(SDL_Renderer* renderer) {
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_RenderClear(renderer);
+
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 
     const SDL_Rect playfield = {
@@ -154,21 +157,21 @@ static void render_playfield(SDL_Renderer* renderer) {
     SDL_RenderFillRect(renderer, &playfield);
 }
 
-static void render(SDL_Renderer* renderer, game_state state) {
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    SDL_RenderClear(renderer);
-
-    render_playfield(renderer);
-
+static void render_ball(SDL_Renderer* renderer, const game_state* state) {
     const SDL_Rect ball_rect = {
-            (int) (state).ball.x,
-            (int) (state).ball.y,
+            (int) (*state).ball.x,
+            (int) (*state).ball.y,
             BALL_WIDTH,
             BALL_HEIGHT
     };
 
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     SDL_RenderFillRect(renderer, &ball_rect);
+}
+
+static void render(SDL_Renderer* renderer, game_state state) {
+    render_playfield(renderer);
+    render_ball(renderer, &state);
 
     SDL_RenderPresent(renderer);
 }
