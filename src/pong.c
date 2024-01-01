@@ -150,14 +150,12 @@ static pong_state update_state(const pong_state* old_state, pong_input input) {
     }
 
     const long double delta_time = (new_frame_time - old_state->last_frame_time) / 1000.0L;
-    pong_state new_game_state = {
+
+    return (pong_state) {
             .ball = update_ball(&old_state->ball, delta_time),
+            .player_x = update_player(old_state->player_x, input, delta_time),
             .last_frame_time = new_frame_time
     };
-
-    new_game_state.player_x = update_player(old_state->player_x, input, delta_time);
-
-    return new_game_state;
 }
 
 static void render_playfield(SDL_Renderer* renderer) {
