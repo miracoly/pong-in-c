@@ -125,8 +125,18 @@ static uint16_t move_player_right(uint16_t old_player_x, long double delta_time)
 
 static uint16_t update_player(uint16_t old_player_x, pong_input input, long double delta_time) {
     uint16_t new_player_x = old_player_x;
-    if (input.left) new_player_x = move_player_left(new_player_x, delta_time);
-    if (input.right) new_player_x = move_player_right(new_player_x, delta_time);
+    if (input.left) {
+        uint16_t new_x = move_player_left(new_player_x, delta_time);
+        new_player_x = (new_x < (2 * PLAYFIELD_PADDING) || new_x > WINDOW_WIDTH)
+                ? (2 * PLAYFIELD_PADDING)
+                : new_x;
+    }
+    if (input.right) {
+        uint16_t new_x = move_player_right(new_player_x, delta_time);
+         new_player_x = (new_x > WINDOW_WIDTH - (2 * PLAYFIELD_PADDING) - PLAYER_WIDTH)
+                ? WINDOW_WIDTH - (2 * PLAYFIELD_PADDING) - PLAYER_WIDTH
+                : new_x;
+    }
     return new_player_x;
 }
 
@@ -206,9 +216,9 @@ void init_pong(void) {
 
     pong_state state = init_game_state();
     pong_input input = {
-        .left = false,
-        .right = false,
-        .quit = false
+            .left = false,
+            .right = false,
+            .quit = false
     };
 
     while (!input.quit) {
