@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <SDL2/SDL.h>
+#include <tgmath.h>
+#include <math.h>
 
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
@@ -19,6 +21,10 @@
 
 #define FPS 30
 #define FRAME_TARGET_TIME (1000 / FPS)
+
+#ifndef M_PI
+#define M_PI (3.14159265358979323846)
+#endif
 
 static void initialize_window(SDL_Window** window, SDL_Renderer** renderer) {
     if (SDL_Init(SDL_INIT_EVERYTHING)) {
@@ -98,6 +104,7 @@ static pong_state init_game_state(void) {
             .ball = (ball) {
                     .x = 20.f,
                     .y = 20.f,
+                    .angle = 45,
             },
             .player_x = WINDOW_WIDTH / 2,
             .last_frame_time = 0
@@ -105,13 +112,15 @@ static pong_state init_game_state(void) {
 }
 
 static ball update_ball(const ball* old_ball, long double delta_time) {
+    float radians = (float) (old_ball->angle * M_PI / 180.0);
     return (ball) {
             .x = old_ball->x > WINDOW_WIDTH
                  ? 0.f
-                 : (float) (old_ball->x + (BALL_SPEED * delta_time)),
+                 : (float) (old_ball->x + ((BALL_SPEED * cos(radians)) * delta_time)),
             .y = old_ball->y > WINDOW_HEIGHT
                  ? 0.f
-                 : (float) (old_ball->y + (BALL_SPEED * delta_time)),
+                 : (float) (old_ball->y + ((BALL_SPEED * sin(radians)) * delta_time)),
+            .angle = old_ball->angle
     };
 }
 
@@ -128,14 +137,14 @@ static uint16_t update_player(uint16_t old_player_x, pong_input input, long doub
     if (input.left) {
         uint16_t new_x = move_player_left(new_player_x, delta_time);
         new_player_x = (new_x < (2 * PLAYFIELD_PADDING) || new_x > WINDOW_WIDTH)
-                ? (2 * PLAYFIELD_PADDING)
-                : new_x;
+                       ? (2 * PLAYFIELD_PADDING)
+                       : new_x;
     }
     if (input.right) {
         uint16_t new_x = move_player_right(new_player_x, delta_time);
-         new_player_x = (new_x > WINDOW_WIDTH - (2 * PLAYFIELD_PADDING) - PLAYER_WIDTH)
-                ? WINDOW_WIDTH - (2 * PLAYFIELD_PADDING) - PLAYER_WIDTH
-                : new_x;
+        new_player_x = (new_x > WINDOW_WIDTH - (2 * PLAYFIELD_PADDING) - PLAYER_WIDTH)
+                       ? WINDOW_WIDTH - (2 * PLAYFIELD_PADDING) - PLAYER_WIDTH
+                       : new_x;
     }
     return new_player_x;
 }
