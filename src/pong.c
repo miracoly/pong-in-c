@@ -105,9 +105,24 @@ static game_state update(const game_state old_state) {
 }
 
 
-static void render(SDL_Renderer* renderer, game_state* state) {
+static void render_playfield(SDL_Renderer* renderer) {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+
+    const SDL_Rect playfield = {
+            15,
+            15,
+            WINDOW_WIDTH - 30,
+            WINDOW_HEIGHT - 30
+    };
+
+    SDL_RenderFillRect(renderer, &playfield);
+}
+
+static void render(SDL_Renderer* renderer, game_state* state) {
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     SDL_RenderClear(renderer);
+
+    render_playfield(renderer);
 
     const SDL_Rect ball_rect = {
             (int) (*state).ball.x,
