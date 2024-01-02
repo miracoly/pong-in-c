@@ -17,6 +17,8 @@
 #define BALL_SPEED 150
 #define BALL_X_MIN PLAYFIELD_PADDING
 #define BALL_X_MAX (WINDOW_WIDTH - (PLAYFIELD_PADDING + BALL_WIDTH))
+#define BALL_Y_MIN PLAYFIELD_PADDING
+#define BALL_Y_MAX (WINDOW_HEIGHT - (PLAYFIELD_PADDING + BALL_HEIGHT))
 
 #define PLAYER_WIDTH 150
 #define PLAYER_HEIGHT 15
@@ -89,6 +91,10 @@ static void destroy_window(SDL_Window* window, SDL_Renderer* renderer) {
     SDL_Quit();
 }
 
+typedef enum {
+    running, lost
+} game_state;
+
 typedef struct {
     float x;
     float y;
@@ -96,33 +102,49 @@ typedef struct {
 } ball;
 
 typedef struct {
+    game_state state;
     ball ball;
     uint16_t player_x;
     uint64_t last_frame_time;
 } pong_state;
 
-static bool hitsRightWall(const ball* old_ball) {
-    return old_ball->x > BALL_X_MAX;
-}
-
-static bool hitsLeftWall(const ball* old_ball) {
-    return old_ball->x < BALL_X_MIN;
-}
+static uint16_t reflect_horizontally(const ball* ball);
 
 static pong_state init_game_state(void) {
     return (pong_state) {
+            .state = running,
             .ball = (ball) {
                     .x = 50.f,
                     .y = 50.f,
-                    .angle = 10,
+                    .angle = 330,
             },
             .player_x = WINDOW_WIDTH / 2,
             .last_frame_time = 0
     };
 }
 
+static bool hitsRightWall(const ball* ball) {
+    return ball->x > BALL_X_MAX;
+}
+
+static bool hitsTopWall(const ball* ball) {
+    return ball->y < BALL_Y_MIN;
+}
+
+static bool hitsBottomWall(const ball* ball) {
+    return ball->y > BALL_Y_MAX;
+}
+
+static bool hitsLeftWall(const ball* ball) {
+    return ball->x < BALL_X_MIN;
+}
+
 static uint16_t reflect_vertically(const ball* old_ball) {
     return (180 - old_ball->angle) % 360;
+}
+
+static uint16_t reflect_horizontally(const ball* ball) {
+    return (360 - ball->angle) % 360;
 }
 
 static float update_ball_x(const ball* old_ball, long double delta_time, float radians) {
@@ -131,16 +153,24 @@ static float update_ball_x(const ball* old_ball, long double delta_time, float r
     return (float) (old_ball->x + ((BALL_SPEED * cos(radians)) * delta_time));
 }
 
+static float update_ball_y(const ball* old_ball, long double delta_time, float radians) {
+    if (hitsBottomWall(old_ball)) return BALL_Y_MAX;
+    if (hitsTopWall(old_ball)) return BALL_Y_MIN;
+    return (float) (old_ball->y + ((BALL_SPEED * sin(radians)) * delta_time));
+}
+
+static uint16_t update_ball_angle(const ball* old_ball) {
+    if (hitsRightWall(old_ball) || hitsLeftWall(old_ball)) return reflect_vertically(old_ball);
+    if (hitsTopWall(old_ball) || hitsBottomWall(old_ball)) return reflect_horizontally(old_ball);
+    return old_ball->angle;
+}
+
 static ball update_ball(const ball* old_ball, long double delta_time) {
     float radians = (float) (old_ball->angle * M_PI / 180.0);
     return (ball) {
             .x = update_ball_x(old_ball, delta_time, radians),
-            .y = old_ball->y > WINDOW_HEIGHT
-                 ? 0.f
-                 : (float) (old_ball->y + ((BALL_SPEED * sin(radians)) * delta_time)),
-            .angle = hitsRightWall(old_ball) || hitsLeftWall(old_ball)
-                     ? reflect_vertically(old_ball)
-                     : old_ball->angle
+            .y = update_ball_y(old_ball, delta_time, radians),
+            .angle = update_ball_angle(old_ball)
     };
 }
 
@@ -179,9 +209,11 @@ static pong_state update_state(const pong_state* old_state, pong_input input) {
     }
 
     const long double delta_time = (new_frame_time - old_state->last_frame_time) / 1000.0L;
+    const ball new_ball = update_ball(&old_state->ball, delta_time);
 
     return (pong_state) {
-            .ball = update_ball(&old_state->ball, delta_time),
+            .state = hitsBottomWall(&new_ball) ? lost : old_state->state,
+            .ball = new_ball,
             .player_x = update_player(old_state->player_x, input, delta_time),
             .last_frame_time = new_frame_time
     };
@@ -228,10 +260,18 @@ static void render_player(SDL_Renderer* renderer, uint16_t player_x) {
     SDL_RenderFillRect(renderer, &player);
 }
 
-static void render(SDL_Renderer* renderer, const pong_state* state) {
+static void render_lost_screen(SDL_Renderer* renderer) {
     render_playfield(renderer);
-    render_ball(renderer, &(state->ball));
-    render_player(renderer, state->player_x);
+}
+
+static void render(SDL_Renderer* renderer, const pong_state* state) {
+    if (state->state == lost) {
+        render_lost_screen(renderer);
+    } else {
+        render_playfield(renderer);
+        render_ball(renderer, &(state->ball));
+        render_player(renderer, state->player_x);
+    }
 
     SDL_RenderPresent(renderer);
 }
