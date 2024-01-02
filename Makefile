@@ -8,6 +8,7 @@ CFLAGS += -Werror
 CFLAGS += -Wmissing-declarations
 CFLAGS += -DUNITY_SUPPORT_64 -DUNITY_OUTPUT_COLOR
 CFLAGS += -lSDL2
+CFLAGS += -lSDL2_ttf
 CFLAGS += -lm
 
 ASANFLAGS  = -fsanitize=address
