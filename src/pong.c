@@ -9,15 +9,17 @@
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
 
+#define PLAYER_SPEED 750
+#define PLAYFIELD_PADDING 15
+
 #define BALL_WIDTH 15
 #define BALL_HEIGHT 15
 #define BALL_SPEED 150
+#define BALL_X_MIN PLAYFIELD_PADDING
+#define BALL_X_MAX (WINDOW_WIDTH - (PLAYFIELD_PADDING + BALL_WIDTH))
 
 #define PLAYER_WIDTH 150
 #define PLAYER_HEIGHT 15
-#define PLAYER_SPEED 750
-
-#define PLAYFIELD_PADDING 15
 
 #define FPS 30
 #define FRAME_TARGET_TIME (1000 / FPS)
@@ -99,28 +101,46 @@ typedef struct {
     uint64_t last_frame_time;
 } pong_state;
 
+static bool hitsRightWall(const ball* old_ball) {
+    return old_ball->x > BALL_X_MAX;
+}
+
+static bool hitsLeftWall(const ball* old_ball) {
+    return old_ball->x < BALL_X_MIN;
+}
+
 static pong_state init_game_state(void) {
     return (pong_state) {
             .ball = (ball) {
-                    .x = 20.f,
-                    .y = 20.f,
-                    .angle = 45,
+                    .x = 50.f,
+                    .y = 50.f,
+                    .angle = 10,
             },
             .player_x = WINDOW_WIDTH / 2,
             .last_frame_time = 0
     };
 }
 
+static uint16_t reflect_vertically(const ball* old_ball) {
+    return (180 - old_ball->angle) % 360;
+}
+
+static float update_ball_x(const ball* old_ball, long double delta_time, float radians) {
+    if (hitsRightWall(old_ball)) return BALL_X_MAX;
+    if (hitsLeftWall(old_ball)) return BALL_X_MIN;
+    return (float) (old_ball->x + ((BALL_SPEED * cos(radians)) * delta_time));
+}
+
 static ball update_ball(const ball* old_ball, long double delta_time) {
     float radians = (float) (old_ball->angle * M_PI / 180.0);
     return (ball) {
-            .x = old_ball->x > WINDOW_WIDTH
-                 ? 0.f
-                 : (float) (old_ball->x + ((BALL_SPEED * cos(radians)) * delta_time)),
+            .x = update_ball_x(old_ball, delta_time, radians),
             .y = old_ball->y > WINDOW_HEIGHT
                  ? 0.f
                  : (float) (old_ball->y + ((BALL_SPEED * sin(radians)) * delta_time)),
-            .angle = old_ball->angle
+            .angle = hitsRightWall(old_ball) || hitsLeftWall(old_ball)
+                     ? reflect_vertically(old_ball)
+                     : old_ball->angle
     };
 }
 
