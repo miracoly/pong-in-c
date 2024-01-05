@@ -15,7 +15,7 @@
 
 #define BALL_WIDTH 15
 #define BALL_HEIGHT 15
-#define BALL_SPEED 150
+#define BALL_SPEED 300
 #define BALL_X_MIN PLAYFIELD_PADDING
 #define BALL_X_MAX (WINDOW_WIDTH - (PLAYFIELD_PADDING + BALL_WIDTH))
 #define BALL_Y_MIN PLAYFIELD_PADDING
@@ -23,6 +23,9 @@
 
 #define PLAYER_WIDTH 150
 #define PLAYER_HEIGHT 15
+
+#define COLOR_WHITE ((SDL_Color) {255, 255, 255, 255})
+#define TEXT_LOOSE "You Loose!"
 
 #define FPS 30
 #define FRAME_TARGET_TIME (1000 / FPS)
@@ -52,6 +55,17 @@ static void initialize_window(SDL_Window** window, SDL_Renderer** renderer) {
     *renderer = SDL_CreateRenderer(*window, -1, 0);
     if (!*renderer) {
         perror("Error creating SDL Renderer.\n");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void initialize_font(TTF_Font** font) {
+    TTF_Init();
+
+    *font = TTF_OpenFont("./src/assets/OpenSans-Regular.ttf", 64);
+
+    if (!*font) {
+        fprintf(stderr, "%s", TTF_GetError());
         exit(EXIT_FAILURE);
     }
 }
@@ -176,11 +190,11 @@ static ball update_ball(const ball* old_ball, long double delta_time) {
 }
 
 static uint16_t move_player_left(uint16_t old_player_x, long double delta_time) {
-    return (uint16_t) (old_player_x - (PLAYER_SPEED * delta_time));
+    return (uint16_t)(old_player_x - (PLAYER_SPEED * delta_time));
 }
 
 static uint16_t move_player_right(uint16_t old_player_x, long double delta_time) {
-    return (uint16_t) (old_player_x + (PLAYER_SPEED * delta_time));
+    return (uint16_t)(old_player_x + (PLAYER_SPEED * delta_time));
 }
 
 static uint16_t update_player(uint16_t old_player_x, pong_input input, long double delta_time) {
@@ -248,7 +262,6 @@ static void render_ball(SDL_Renderer* renderer, const ball* ball) {
     SDL_RenderFillRect(renderer, &ball_rect);
 }
 
-
 static void render_player(SDL_Renderer* renderer, uint16_t player_x) {
     const SDL_Rect player = {
             player_x,
@@ -261,13 +274,36 @@ static void render_player(SDL_Renderer* renderer, uint16_t player_x) {
     SDL_RenderFillRect(renderer, &player);
 }
 
-static void render_lost_screen(SDL_Renderer* renderer) {
+static void render_lost_screen(SDL_Renderer* renderer, TTF_Font* font) {
     render_playfield(renderer);
+
+    SDL_Surface* surface_message =
+            TTF_RenderText_Solid(font, TEXT_LOOSE, COLOR_WHITE);
+
+    SDL_Texture* message = SDL_CreateTextureFromSurface(renderer, surface_message);
+
+    SDL_Rect message_rect = {
+            .x = 100,
+            .y = 100,
+            .w = 0,
+            .h = 0,
+    };
+
+    const int size_failure = TTF_SizeUTF8(font, TEXT_LOOSE, &message_rect.w, &message_rect.h);
+    if (!size_failure) {
+        fprintf(stderr, "%s", TTF_GetError());
+        exit(EXIT_FAILURE);
+    }
+
+    SDL_RenderCopy(renderer, message, NULL, &message_rect);
+
+    SDL_FreeSurface(surface_message);
+    SDL_DestroyTexture(message);
 }
 
-static void render(SDL_Renderer* renderer, const pong_state* state) {
+static void render(SDL_Renderer* renderer, const pong_state* state, TTF_Font* font) {
     if (state->state == lost) {
-        render_lost_screen(renderer);
+        render_lost_screen(renderer, font);
     } else {
         render_playfield(renderer);
         render_ball(renderer, &(state->ball));
@@ -282,6 +318,9 @@ void init_pong(void) {
     SDL_Renderer* renderer = NULL;
     initialize_window(&window, &renderer);
 
+    TTF_Font* font = NULL;
+    initialize_font(&font);
+
     pong_state state = init_game_state();
     pong_input input = {
             .left = false,
@@ -294,7 +333,7 @@ void init_pong(void) {
         if (input.quit) break;
 
         state = update_state(&state, input);
-        render(renderer, &state);
+        render(renderer, &state, font);
     }
 
     destroy_window(window, renderer);
