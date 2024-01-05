@@ -16,7 +16,7 @@
 
 #define BALL_WIDTH 15
 #define BALL_HEIGHT 15
-#define BALL_SPEED 300
+#define BALL_SPEED 500
 #define BALL_X_MIN PLAYFIELD_PADDING
 #define BALL_X_MAX (WINDOW_WIDTH - (PLAYFIELD_PADDING + BALL_WIDTH))
 #define BALL_Y_MIN PLAYFIELD_PADDING
@@ -121,6 +121,7 @@ typedef struct {
     game_state state;
     ball ball;
     uint16_t player_x;
+    unsigned points;
     uint64_t last_frame_time;
 } pong_state;
 
@@ -132,9 +133,10 @@ static pong_state init_game_state(void) {
             .ball = (ball) {
                     .x = 50.f,
                     .y = 50.f,
-                    .angle = 330,
+                    .angle = 300,
             },
             .player_x = WINDOW_WIDTH / 2,
+            .points = 0,
             .last_frame_time = 0
     };
 }
@@ -243,6 +245,9 @@ static pong_state update_state(const pong_state* old_state, pong_input input) {
             .state = hitsBottomWall(&new_ball) ? lost : old_state->state,
             .ball = new_ball,
             .player_x = update_player(old_state->player_x, input, delta_time),
+            .points = hitsPlayer(&old_state->ball, old_state->player_x)
+                      ? old_state->points + 1
+                      : old_state->points,
             .last_frame_time = new_frame_time
     };
 }
@@ -287,9 +292,22 @@ static void render_player(SDL_Renderer* renderer, uint16_t player_x) {
     SDL_RenderFillRect(renderer, &player);
 }
 
-static void render_text_center(SDL_Renderer* renderer, const char text[static 1], TTF_Font* font) {
+static void text_center(SDL_Rect* message_rect) {
+    message_rect->x = (WINDOW_WIDTH - message_rect->w) / 2;
+    message_rect->y = (WINDOW_HEIGHT - message_rect->h) / 2;
+}
+
+static void text_top(SDL_Rect* message_rect) {
+    message_rect->x = (WINDOW_WIDTH - message_rect->w) / 2;
+    message_rect->y = (4 * PLAYFIELD_PADDING);
+}
+
+static void render_text(SDL_Renderer* renderer,
+                        void set_position(SDL_Rect*),
+                        const char text[static 1],
+                        TTF_Font* font) {
     SDL_Rect* message_rect = &(SDL_Rect) {0};
-    SDL_Surface* surface_message = TTF_RenderText_Solid(font, TEXT_LOOSE, COLOR_WHITE);
+    SDL_Surface* surface_message = TTF_RenderText_Solid(font, text, COLOR_WHITE);
     SDL_Texture* message = SDL_CreateTextureFromSurface(renderer, surface_message);
 
     const int size_failure = TTF_SizeUTF8(font, text, &(message_rect->w), &(message_rect->h));
@@ -298,8 +316,7 @@ static void render_text_center(SDL_Renderer* renderer, const char text[static 1]
         exit(EXIT_FAILURE);
     }
 
-    message_rect->x = (WINDOW_WIDTH - message_rect->w) / 2;
-    message_rect->y = (WINDOW_HEIGHT - message_rect->h) / 2;
+    set_position(message_rect);
 
     SDL_RenderCopy(renderer, message, NULL, message_rect);
     SDL_FreeSurface(surface_message);
@@ -308,8 +325,13 @@ static void render_text_center(SDL_Renderer* renderer, const char text[static 1]
 
 static void render_lost_screen(SDL_Renderer* renderer, TTF_Font* font) {
     render_playfield(renderer);
+    render_text(renderer, &text_center, TEXT_LOOSE, font);
+}
 
-    render_text_center(renderer, TEXT_LOOSE, font);
+static void render_points(SDL_Renderer* renderer, unsigned int points, TTF_Font* font) {
+    char text[10];
+    sprintf(text, "%u", points);
+    render_text(renderer, &text_top, text, font);
 }
 
 static void render(SDL_Renderer* renderer, const pong_state* state, TTF_Font* font) {
@@ -319,6 +341,7 @@ static void render(SDL_Renderer* renderer, const pong_state* state, TTF_Font* fo
         render_playfield(renderer);
         render_ball(renderer, &(state->ball));
         render_player(renderer, state->player_x);
+        render_points(renderer, state->points, font);
     }
 
     SDL_RenderPresent(renderer);
