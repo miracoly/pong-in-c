@@ -62,7 +62,7 @@ static void initialize_window(SDL_Window** window, SDL_Renderer** renderer) {
 void initialize_font(TTF_Font** font) {
     TTF_Init();
 
-    *font = TTF_OpenFont("./src/assets/OpenSans-Regular.ttf", 64);
+    *font = TTF_OpenFont("./src/assets/OpenSans-Regular.ttf", 100);
 
     if (!*font) {
         fprintf(stderr, "%s", TTF_GetError());
@@ -274,31 +274,29 @@ static void render_player(SDL_Renderer* renderer, uint16_t player_x) {
     SDL_RenderFillRect(renderer, &player);
 }
 
-static void render_lost_screen(SDL_Renderer* renderer, TTF_Font* font) {
-    render_playfield(renderer);
-
-    SDL_Surface* surface_message =
-            TTF_RenderText_Solid(font, TEXT_LOOSE, COLOR_WHITE);
-
+static void render_text_center(SDL_Renderer* renderer, const char text[static 1], TTF_Font* font) {
+    SDL_Rect* message_rect = &(SDL_Rect) {0};
+    SDL_Surface* surface_message = TTF_RenderText_Solid(font, TEXT_LOOSE, COLOR_WHITE);
     SDL_Texture* message = SDL_CreateTextureFromSurface(renderer, surface_message);
 
-    SDL_Rect message_rect = {
-            .x = 100,
-            .y = 100,
-            .w = 0,
-            .h = 0,
-    };
-
-    const int size_failure = TTF_SizeUTF8(font, TEXT_LOOSE, &message_rect.w, &message_rect.h);
-    if (!size_failure) {
+    const int size_failure = TTF_SizeUTF8(font, text, &(message_rect->w), &(message_rect->h));
+    if (size_failure) {
         fprintf(stderr, "%s", TTF_GetError());
         exit(EXIT_FAILURE);
     }
 
-    SDL_RenderCopy(renderer, message, NULL, &message_rect);
+    message_rect->x = (WINDOW_WIDTH - message_rect->w) / 2;
+    message_rect->y = (WINDOW_HEIGHT - message_rect->h) / 2;
 
+    SDL_RenderCopy(renderer, message, NULL, message_rect);
     SDL_FreeSurface(surface_message);
     SDL_DestroyTexture(message);
+}
+
+static void render_lost_screen(SDL_Renderer* renderer, TTF_Font* font) {
+    render_playfield(renderer);
+
+    render_text_center(renderer, TEXT_LOOSE, font);
 }
 
 static void render(SDL_Renderer* renderer, const pong_state* state, TTF_Font* font) {
