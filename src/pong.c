@@ -26,7 +26,6 @@
 #define PLAYER_HEIGHT 15
 
 #define COLOR_WHITE ((SDL_Color) {255, 255, 255, 255})
-#define TEXT_LOOSE "You Loose!"
 
 #define FPS 30
 #define FRAME_TARGET_TIME (1000 / FPS)
@@ -241,13 +240,15 @@ static pong_state update_state(const pong_state* old_state, pong_input input) {
     const long double delta_time = (new_frame_time - old_state->last_frame_time) / 1000.0L;
     const ball new_ball = update_ball(&old_state->ball, old_state->player_x, delta_time);
 
+    const unsigned int new_points = hitsPlayer(&old_state->ball, old_state->player_x)
+                              && old_state->state == running
+                              ? old_state->points + 1
+                              : old_state->points;
     return (pong_state) {
             .state = hitsBottomWall(&new_ball) ? lost : old_state->state,
             .ball = new_ball,
             .player_x = update_player(old_state->player_x, input, delta_time),
-            .points = hitsPlayer(&old_state->ball, old_state->player_x)
-                      ? old_state->points + 1
-                      : old_state->points,
+            .points = new_points,
             .last_frame_time = new_frame_time
     };
 }
@@ -323,9 +324,11 @@ static void render_text(SDL_Renderer* renderer,
     SDL_DestroyTexture(message);
 }
 
-static void render_lost_screen(SDL_Renderer* renderer, TTF_Font* font) {
+static void render_lost_screen(SDL_Renderer* renderer, unsigned int points, TTF_Font* font) {
     render_playfield(renderer);
-    render_text(renderer, &text_center, TEXT_LOOSE, font);
+    char text[100];
+    sprintf(text, "Score: %u", points);
+    render_text(renderer, &text_center, text, font);
 }
 
 static void render_points(SDL_Renderer* renderer, unsigned int points, TTF_Font* font) {
@@ -336,7 +339,7 @@ static void render_points(SDL_Renderer* renderer, unsigned int points, TTF_Font*
 
 static void render(SDL_Renderer* renderer, const pong_state* state, TTF_Font* font) {
     if (state->state == lost) {
-        render_lost_screen(renderer, font);
+        render_lost_screen(renderer, state->points, font);
     } else {
         render_playfield(renderer);
         render_ball(renderer, &(state->ball));
