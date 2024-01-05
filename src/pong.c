@@ -6,6 +6,7 @@
 #include <SDL2/SDL_ttf.h>
 #include <tgmath.h>
 #include <math.h>
+#include <stdint-gcc.h>
 
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
@@ -59,7 +60,7 @@ static void initialize_window(SDL_Window** window, SDL_Renderer** renderer) {
     }
 }
 
-void initialize_font(TTF_Font** font) {
+static void initialize_font(TTF_Font** font) {
     TTF_Init();
 
     *font = TTF_OpenFont("./src/assets/OpenSans-Regular.ttf", 100);
@@ -154,6 +155,13 @@ static bool hitsLeftWall(const ball* ball) {
     return ball->x < BALL_X_MIN;
 }
 
+static bool hitsPlayer(const ball* ball, uint16_t player_x) {
+    const float player_y = WINDOW_HEIGHT - PLAYER_HEIGHT - (2 * PLAYFIELD_PADDING) - BALL_HEIGHT;
+    return ball->y >= player_y
+           && ((int) ball->x + BALL_WIDTH >= player_x)
+           && ((int) ball->x <= player_x + PLAYER_WIDTH);
+}
+
 static uint16_t reflect_vertically(const ball* old_ball) {
     return (180 - old_ball->angle) % 360;
 }
@@ -168,33 +176,38 @@ static float update_ball_x(const ball* old_ball, long double delta_time, float r
     return (float) (old_ball->x + ((BALL_SPEED * cos(radians)) * delta_time));
 }
 
-static float update_ball_y(const ball* old_ball, long double delta_time, float radians) {
+static float update_ball_y(const ball* old_ball,
+                           uint16_t player_x,
+                           long double delta_time,
+                           float radians) {
+    if (hitsPlayer(old_ball, player_x)) return BALL_Y_MAX - PLAYFIELD_PADDING - PLAYER_HEIGHT - 1;
     if (hitsBottomWall(old_ball)) return BALL_Y_MAX;
     if (hitsTopWall(old_ball)) return BALL_Y_MIN;
     return (float) (old_ball->y + ((BALL_SPEED * sin(radians)) * delta_time));
 }
 
-static uint16_t update_ball_angle(const ball* old_ball) {
+static uint16_t update_ball_angle(const ball* old_ball, uint16_t player_x) {
+    if (hitsPlayer(old_ball, player_x)) return reflect_horizontally(old_ball);
     if (hitsRightWall(old_ball) || hitsLeftWall(old_ball)) return reflect_vertically(old_ball);
     if (hitsTopWall(old_ball) || hitsBottomWall(old_ball)) return reflect_horizontally(old_ball);
     return old_ball->angle;
 }
 
-static ball update_ball(const ball* old_ball, long double delta_time) {
+static ball update_ball(const ball* old_ball, uint16_t player_x, long double delta_time) {
     float radians = (float) (old_ball->angle * M_PI / 180.0);
     return (ball) {
             .x = update_ball_x(old_ball, delta_time, radians),
-            .y = update_ball_y(old_ball, delta_time, radians),
-            .angle = update_ball_angle(old_ball)
+            .y = update_ball_y(old_ball, player_x, delta_time, radians),
+            .angle = update_ball_angle(old_ball, player_x)
     };
 }
 
 static uint16_t move_player_left(uint16_t old_player_x, long double delta_time) {
-    return (uint16_t)(old_player_x - (PLAYER_SPEED * delta_time));
+    return (uint16_t) (old_player_x - (PLAYER_SPEED * delta_time));
 }
 
 static uint16_t move_player_right(uint16_t old_player_x, long double delta_time) {
-    return (uint16_t)(old_player_x + (PLAYER_SPEED * delta_time));
+    return (uint16_t) (old_player_x + (PLAYER_SPEED * delta_time));
 }
 
 static uint16_t update_player(uint16_t old_player_x, pong_input input, long double delta_time) {
@@ -224,7 +237,7 @@ static pong_state update_state(const pong_state* old_state, pong_input input) {
     }
 
     const long double delta_time = (new_frame_time - old_state->last_frame_time) / 1000.0L;
-    const ball new_ball = update_ball(&old_state->ball, delta_time);
+    const ball new_ball = update_ball(&old_state->ball, old_state->player_x, delta_time);
 
     return (pong_state) {
             .state = hitsBottomWall(&new_ball) ? lost : old_state->state,
