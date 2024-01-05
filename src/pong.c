@@ -63,7 +63,7 @@ static void initialize_window(SDL_Window** window, SDL_Renderer** renderer) {
 static void initialize_font(TTF_Font** font) {
     TTF_Init();
 
-    *font = TTF_OpenFont("./src/assets/OpenSans-Regular.ttf", 100);
+    *font = TTF_OpenFont("./assets/OpenSans-Regular.ttf", 100);
 
     if (!*font) {
         fprintf(stderr, "%s", TTF_GetError());

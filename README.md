@@ -3,6 +3,8 @@ Simple implementation of Pong in C using SDL2.
 
 SDL is a low-level abstraction layer which allows drawing on the screen while maintaining cross-platform portability.
 
+![Pong Game](assets/pong.gif)
+
 ## Prerequisites
 - gcc
 - make
